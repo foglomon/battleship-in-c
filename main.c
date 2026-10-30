@@ -1,44 +1,27 @@
 /*
-   01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
-A  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-B  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-C  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-D  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-E  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-F  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-G  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-H  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-I  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-J  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-K  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-L  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-M  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-N  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
-O  □  □  □  □  □  □  □  □  □  □  □  □  □  □  □
+     A   B   C   D   E   F   G   H   I   J   K   L   M   N   O
+    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+ 1  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+ 2  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+ ...
 
 Hit - X
 Miss - O
 Ship - S
-Water - ~
+Water -
 
 Battleship Modes:
 
 1. Bot vs Player
 2. Player vs Player
 
-Points
-
-print grid
-sleep
-col abc
-extra chance on hitting
-window clear
-border
-
-
-
-
-
+Input format: <row><col>  e.g. 1A, 5C, 12O
+Extra chance on successful hit.
+Screen cleared after every move.
+Grid displayed with separator lines.
+Bot ships placed randomly.
 */
 
 
@@ -46,9 +29,10 @@ border
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <ctype.h> 
+#include <ctype.h>
+#include <windows.h>
 
-#define SIZE 15
+#define SIZE 10
 #define SHIP_COUNT 5
 
 #define WATER ' '
@@ -82,17 +66,33 @@ struct Player {
 
 /* Function declarations */
 void initializePlayer(struct Player *p, const char *name);
+void clearScreen(void);
+void delay(int ms);
+void displayReferenceGrid(void);
 void displayBoard(const struct Player *p, int hideShips);
-int placeShipAt(struct Player *p, int index,
-                int row, int col, char orientation);
+int  parseCoordinate(const char *input, int *row, int *col);
+int  placeShipAt(struct Player *p, int index,
+                 int row, int col, char orientation);
 void placePlayerShips(struct Player *p);
 void placeBotShips(struct Player *bot);
-int shipContains(const struct Ship *s, int row, int col);
+int  shipContains(const struct Ship *s, int row, int col);
 void performAttack(struct Player *attacker,
                    struct Player *defender, int row, int col);
-void playerAttack(struct Player *player, struct Player *bot);
-void botAttack(struct Player *bot, struct Player *player);
-int allShipsSunk(const struct Player *p);
+int  playerAttack(struct Player *player, struct Player *bot);
+int  botAttack(struct Player *bot, struct Player *player);
+int  allShipsSunk(const struct Player *p);
+
+/* Clear the console screen */
+void clearScreen(void)
+{
+    system("cls");
+}
+
+/* Pause for a given number of milliseconds */
+void delay(int ms)
+{
+    Sleep(ms);
+}
 
 /* Initialize the board and ship information */
 void initializePlayer(struct Player *p, const char *name)
@@ -116,6 +116,40 @@ void initializePlayer(struct Player *p, const char *name)
     }
 }
 
+/* Display an empty reference grid at game start */
+void displayReferenceGrid(void)
+{
+    int r, c;
+
+    printf("\n=== REFERENCE GRID ===\n\n");
+    printf("     ");
+    for (c = 0; c < SIZE; c++) {
+        printf("  %c ", 'A' + c);
+    }
+    printf("\n");
+    printf("    +");
+    for (c = 0; c < SIZE; c++) {
+        printf("---+");
+    }
+    printf("\n");
+
+    for (r = 0; r < SIZE; r++) {
+        printf(" %2d |", r + 1);
+        for (c = 0; c < SIZE; c++) {
+            printf("   |");
+        }
+        printf("\n");
+        printf("    +");
+        for (c = 0; c < SIZE; c++) {
+            printf("---+");
+        }
+        printf("\n");
+    }
+
+    printf("\nRows: 1-%d   Columns: A-%c\n", SIZE, 'A' + SIZE - 1);
+    printf("Enter coordinates as: <row><col>  e.g. 1A, 5C, 12O\n");
+}
+
 /* Display a board.
    hideShips = 1 hides ships that have not been hit. */
 void displayBoard(const struct Player *p, int hideShips)
@@ -124,15 +158,23 @@ void displayBoard(const struct Player *p, int hideShips)
     char cell;
 
     printf("\n%s's board\n", p->name);
-    printf("    ");
 
-    for (c = 1; c <= SIZE; c++) {
-        printf("%2d ", c);
+    /* Column headers */
+    printf("     ");
+    for (c = 0; c < SIZE; c++) {
+        printf("  %c ", 'A' + c);
+    }
+    printf("\n");
+
+    /* Top border */
+    printf("    +");
+    for (c = 0; c < SIZE; c++) {
+        printf("---+");
     }
     printf("\n");
 
     for (r = 0; r < SIZE; r++) {
-        printf("%2d  ", r + 1);
+        printf(" %2d |", r + 1);
 
         for (c = 0; c < SIZE; c++) {
             cell = p->board[r][c];
@@ -141,13 +183,57 @@ void displayBoard(const struct Player *p, int hideShips)
                 cell = WATER;
             }
 
-            printf(" %c ", cell);
+            printf(" %c |", cell);
         }
 
         printf("\n");
+
+        /* Row separator */
+        printf("    +");
+        for (c = 0; c < SIZE; c++) {
+            printf("---+");
+        }
+        printf("\n");
     }
 
-    printf("Legend:  = water, S = ship, X = hit, O = miss\n");
+    printf("Legend:   = water, S = ship, X = hit, O = miss\n");
+}
+
+/*
+ * Parse a coordinate string like "1A" or "12O".
+ * Returns 1 on success, filling in zero-based *row and *col.
+ * Returns 0 on invalid input.
+ */
+int parseCoordinate(const char *input, int *row, int *col)
+{
+    int r = 0;
+    int i = 0;
+    char letter;
+
+    /* Parse leading digits (row number) */
+    while (input[i] >= '0' && input[i] <= '9') {
+        r = r * 10 + (input[i] - '0');
+        i++;
+    }
+
+    if (i == 0 || r < 1 || r > SIZE) {
+        return 0;  /* No digits or row out of range */
+    }
+
+    /* Parse letter (column) */
+    letter = (char)toupper((unsigned char)input[i]);
+    if (letter < 'A' || letter > ('A' + SIZE - 1)) {
+        return 0;
+    }
+
+    /* Check nothing else follows */
+    if (input[i + 1] != '\0' && input[i + 1] != '\n' && input[i + 1] != '\r') {
+        return 0;
+    }
+
+    *row = r - 1;           /* zero-based */
+    *col = letter - 'A';    /* zero-based */
+    return 1;
 }
 
 /* Place a ship at a specified starting position.
@@ -201,30 +287,28 @@ void placePlayerShips(struct Player *p)
 {
     int i, row, col;
     char orientation;
+    char coordInput[10];
 
+    clearScreen();
+    displayReferenceGrid();
     printf("\nPlace your ships on the %d x %d board.\n", SIZE, SIZE);
-    printf("Enter starting row, starting column, and orientation.\n");
-    printf("Rows and columns are numbered 1 to %d.\n", SIZE);
-    printf("Orientation: H = horizontal, V = vertical.\n");
+    printf("Enter starting position (e.g. 1A) and orientation (H/V).\n");
 
     for (i = 0; i < SHIP_COUNT; i++) {
         while (1) {
             printf("\n%s (length %d)\n",
                    shipNames[i], p->ships[i].size);
 
-            printf("Starting row: ");
-            if (scanf("%d", &row) != 1) {
+            printf("Starting position (e.g. 3B): ");
+            if (scanf("%9s", coordInput) != 1) {
                 int ch;
                 while ((ch = getchar()) != '\n' && ch != EOF) {}
-                printf("Please enter a number.\n");
+                printf("Invalid input.\n");
                 continue;
             }
 
-            printf("Starting column: ");
-            if (scanf("%d", &col) != 1) {
-                int ch;
-                while ((ch = getchar()) != '\n' && ch != EOF) {}
-                printf("Please enter a number.\n");
+            if (!parseCoordinate(coordInput, &row, &col)) {
+                printf("Invalid coordinate. Use format like 1A, 5C, 12O.\n");
                 continue;
             }
 
@@ -236,36 +320,31 @@ void placePlayerShips(struct Player *p)
 
             orientation = (char)toupper((unsigned char)orientation);
 
-            if (placeShipAt(p, i, row - 1, col - 1, orientation)) {
+            if (placeShipAt(p, i, row, col, orientation)) {
+                clearScreen();
                 displayBoard(p, 0);
                 break;
             }
 
-            printf("Invalid placement! Check the board boundaries, "
-                   "orientation, and overlapping ships.\n");
+            printf("Invalid placement! Check boundaries, orientation, "
+                   "and overlapping ships.\n");
         }
     }
 }
 
-/* Programmer-defined Bot ship positions.
-   All coordinates below are zero-based.
-   Change these values to change the Bot's fleet alignment. */
+/* Randomly place all Bot ships. */
 void placeBotShips(struct Player *bot)
 {
-    /* Carrier: horizontal, row 2, columns 2-6 */
-    placeShipAt(bot, 0, 1, 1, 'H');
+    int i, row, col;
+    char orientation;
 
-    /* Battleship: vertical, column 9, rows 4-7 */
-    placeShipAt(bot, 1, 3, 8, 'V');
-
-    /* Cruiser: horizontal, row 7, columns 3-5 */
-    placeShipAt(bot, 2, 6, 2, 'H');
-
-    /* Submarine: vertical, column 7, rows 10-12 */
-    placeShipAt(bot, 3, 9, 6, 'V');
-
-    /* Destroyer: horizontal, row 13, columns 12-13 */
-    placeShipAt(bot, 4, 12, 11, 'H');
+    for (i = 0; i < SHIP_COUNT; i++) {
+        do {
+            row = rand() % SIZE;
+            col = rand() % SIZE;
+            orientation = (rand() % 2 == 0) ? 'H' : 'V';
+        } while (!placeShipAt(bot, i, row, col, orientation));
+    }
 }
 
 /* Check whether a coordinate belongs to a particular ship. */
@@ -296,8 +375,8 @@ void performAttack(struct Player *attacker,
 {
     int i;
 
-    printf("\n%s attacks row %d, column %d.\n",
-           attacker->name, row + 1, col + 1);
+    printf("\n%s attacks %d%c.\n",
+           attacker->name, row + 1, 'A' + col);
 
     if (defender->board[row][col] == SHIP) {
         defender->board[row][col] = HIT;
@@ -321,11 +400,12 @@ void performAttack(struct Player *attacker,
     }
 }
 
-/* Human player's turn. */
-void playerAttack(struct Player *player, struct Player *bot)
+/* Human player's turn.
+   Returns 1 if the attack was a HIT, 0 if MISS. */
+int playerAttack(struct Player *player, struct Player *bot)
 {
     int row, col;
-    int ch;
+    char coordInput[10];
 
     while (1) {
         printf("\nYour board:");
@@ -334,29 +414,19 @@ void playerAttack(struct Player *player, struct Player *bot)
         printf("\nEnemy board:");
         displayBoard(bot, 1);
 
-        printf("\nEnter attack row (1-%d): ", SIZE);
+        printf("\nEnter attack coordinate (e.g. 3B): ");
 
-        if (scanf("%d", &row) != 1) {
+        if (scanf("%9s", coordInput) != 1) {
+            int ch;
             while ((ch = getchar()) != '\n' && ch != EOF) {}
-            printf("Please enter a number.\n");
+            printf("Invalid input.\n");
             continue;
         }
 
-        printf("Enter attack column (1-%d): ", SIZE);
-
-        if (scanf("%d", &col) != 1) {
-            while ((ch = getchar()) != '\n' && ch != EOF) {}
-            printf("Please enter a number.\n");
+        if (!parseCoordinate(coordInput, &row, &col)) {
+            printf("Invalid coordinate. Use format like 1A, 5C, 12O.\n");
             continue;
         }
-
-        if (row < 1 || row > SIZE || col < 1 || col > SIZE) {
-            printf("Coordinates are outside the board.\n");
-            continue;
-        }
-
-        row--;
-        col--;
 
         if (bot->board[row][col] == HIT ||
             bot->board[row][col] == MISS) {
@@ -365,12 +435,15 @@ void playerAttack(struct Player *player, struct Player *bot)
         }
 
         performAttack(player, bot, row, col);
-        break;
+        delay(1500);
+
+        return (bot->board[row][col] == HIT) ? 1 : 0;
     }
 }
 
-/* Bot attacks a random position that has not been attacked before. */
-void botAttack(struct Player *bot, struct Player *player)
+/* Bot attacks a random position that has not been attacked before.
+   Returns 1 if the attack was a HIT, 0 if MISS. */
+int botAttack(struct Player *bot, struct Player *player)
 {
     int row, col;
 
@@ -381,6 +454,9 @@ void botAttack(struct Player *bot, struct Player *player)
              player->board[row][col] == MISS);
 
     performAttack(bot, player, row, col);
+    delay(1500);
+
+    return (player->board[row][col] == HIT) ? 1 : 0;
 }
 
 /* Return 1 when all ships have been sunk. */
@@ -401,12 +477,14 @@ int main(void)
 {
     struct Player player;
     struct Player bot;
+    int wasHit;
 
     srand((unsigned int)time(NULL));
 
     initializePlayer(&player, "Player");
     initializePlayer(&bot, "Bot");
 
+    clearScreen();
     printf("====================================\n");
     printf("       BATTLESHIP: PLAYER vs BOT\n");
     printf("====================================\n");
@@ -415,26 +493,48 @@ int main(void)
     placeBotShips(&bot);
 
     printf("\nAll ships are placed. Let the battle begin!\n");
+    delay(1500);
 
     while (1) {
-        printf("\n========== YOUR TURN ==========\n");
-        playerAttack(&player, &bot);
+        /* --- Player turn (with extra turns on hit) --- */
+        do {
+            clearScreen();
+            printf("\n========== YOUR TURN ==========\n");
+            wasHit = playerAttack(&player, &bot);
 
-        if (allShipsSunk(&bot)) {
-            printf("\nCongratulations! You defeated the Bot!\n");
-            break;
-        }
+            if (allShipsSunk(&bot)) {
+                clearScreen();
+                printf("\nCongratulations! You defeated the Bot!\n");
+                goto game_over;
+            }
 
-        printf("\n========== BOT'S TURN ==========\n");
-        botAttack(&bot, &player);
+            if (wasHit) {
+                printf("Direct hit! You get another turn!\n");
+                delay(1000);
+            }
+        } while (wasHit);
 
-        if (allShipsSunk(&player)) {
-            printf("\nThe Bot has sunk all your ships. "
-                   "The Bot wins!\n");
-            break;
-        }
+        /* --- Bot turn (with extra turns on hit) --- */
+        do {
+            clearScreen();
+            printf("\n========== BOT'S TURN ==========\n");
+            wasHit = botAttack(&bot, &player);
+
+            if (allShipsSunk(&player)) {
+                clearScreen();
+                printf("\nThe Bot has sunk all your ships. "
+                       "The Bot wins!\n");
+                goto game_over;
+            }
+
+            if (wasHit) {
+                printf("Bot scored a hit! Bot attacks again!\n");
+                delay(1000);
+            }
+        } while (wasHit);
     }
 
+game_over:
     printf("\n========== FINAL BOARDS ==========\n");
 
     displayBoard(&player, 0);
@@ -446,6 +546,3 @@ int main(void)
 
     return 0;
 }
-
-
-
